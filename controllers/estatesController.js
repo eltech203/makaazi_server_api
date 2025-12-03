@@ -268,13 +268,13 @@ exports.createEstate = (req, res) => {
     estate_name, estate_urn, estate_location, street, section, court,
     latitude, longitude, estate_image, logo_url, created_at, updated_at
   ], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
 
-    const estateId = result.insertId;
-
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
     return res.status(201).json({
           message: 'Estate and address config created',
-          estate_id: estateId
+          estate_id: result.insertId
         });
   });
 
@@ -301,8 +301,10 @@ exports.createEstateConfig = (req, res) => {
         court,
       ],
       (err2) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-
+       
+    if (err2) {
+      return res.status(500).json({ error: err2.message });
+    }
       return res.status(201).json({
           message: 'Estate config created',
           estate_id: estate_id
