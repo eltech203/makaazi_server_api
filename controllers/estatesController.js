@@ -269,9 +269,25 @@ exports.createEstate = (req, res) => {
     latitude, longitude, estate_image, logo_url, created_at, updated_at
   ], (err, result) => {
 
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    return res.status(201).json({
+          message: 'Estate and address config created',
+          estate_id: result.insertId
+        });
+  });
 
-    const estate_id = result.insertId;
+};
 
+
+// Create Estate
+exports.createEstateConfig = (req, res) => {
+        
+  // Now continue to insert the estate (your original code goes here)
+  const { estate_id, street, section, court } = req.body;
+
+    // Then insert into the config table
     const configSQL = `
       INSERT INTO estate_address_config (estate_id, street, section, court)
       VALUES (?, ?, ?, ?)
@@ -286,29 +302,15 @@ exports.createEstate = (req, res) => {
       ],
       (err2) => {
        
-    if (err2) {
+if (err2) {
       return res.status(500).json({ error: err2.message });
     }
-        return res.status(201).json({
-          message: 'Estate and address config created',
-          estate_id: result.insertId
+      return res.status(201).json({
+          message: 'Estate config created',
+          estate_id: estate_id
         });
       }
     );
-
-  });
-
-};
-
-
-// Create Estate
-exports.createEstateConfig = (req, res) => {
-        
-  // Now continue to insert the estate (your original code goes here)
-  const { estate_id, street, section, court } = req.body;
-
-    // Then insert into the config table
-    
 };
 
 
