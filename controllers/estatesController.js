@@ -256,26 +256,6 @@ exports.getEstateSubById = (req, res) => {
 // Create Estate
 exports.createEstate = (req, res) => {
         
- const ensureConfigTableExists = `
-CREATE TABLE IF NOT EXISTS estate_address_config (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  estate_id INT NOT NULL,
-  street BOOLEAN DEFAULT TRUE,
-  section BOOLEAN DEFAULT TRUE,
-  court BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (estate_id) REFERENCES estates(estate_id)
-);
-`;
-
-// First: ensure table exists
-db.query(ensureConfigTableExists, (err) => {
-  if (err) {
-    console.error("❌ Failed to create estate_address_config table:", err.message);
-    return res.status(500).json({ error: "Failed to prepare config table" });
-  }
-
   // Now continue to insert the estate (your original code goes here)
   const { estate_name, estate_urn, estate_location, street, section, court, latitude, longitude, estate_image, logo_url, created_at, updated_at } = req.body;
 
@@ -315,7 +295,7 @@ db.query(ensureConfigTableExists, (err) => {
       }
     );
   });
-});
+
 };
 
 
