@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getAllEstates, createEstate,checkAndDisableEstateSubscription,checkEstateDue,updateEstate,searchEstates,getBillingMessage,deleteEstate,getEstateById,searchAllEstates,getEstateByName,subscription,getEstateSubById,checkDueSubscriptions } = require('../controllers/estatesController');
+const { getAllEstates,createEstateConfig ,createEstate,checkAndDisableEstateSubscription,checkEstateDue,updateEstate,searchEstates,getBillingMessage,deleteEstate,getEstateById,searchAllEstates,getEstateByName,subscription,getEstateSubById,checkDueSubscriptions } = require('../controllers/estatesController');
 
 router.get('/getall', getAllEstates);    // Get all estates
 router.post('/create', createEstate);    // Create a new estate
+router.post('/create-config', createEstateConfig);    // Create a new estate
 router.patch('/update_estates/:id', updateEstate);// update estate
 router.put('/delete_estates/:id', deleteEstate);// delete estate
 router.get('/search', searchEstates);// search estate

@@ -272,6 +272,21 @@ exports.createEstate = (req, res) => {
 
     const estateId = result.insertId;
 
+    return res.status(201).json({
+          message: 'Estate and address config created',
+          estate_id: estateId
+        });
+  });
+
+};
+
+
+// Create Estate
+exports.createEstateConfig = (req, res) => {
+        
+  // Now continue to insert the estate (your original code goes here)
+  const { estate_id, street, section, court } = req.body;
+
     // Then insert into the config table
     const configSQL = `
       INSERT INTO estate_address_config (estate_id, street, section, court)
@@ -280,23 +295,22 @@ exports.createEstate = (req, res) => {
     db.query(
       configSQL,
       [
-        estateId,
-        street !== undefined ? street : true,
-        section !== undefined ? section : true,
-        court !== undefined ? court : true,
+        estate_id,
+        street,
+        section,
+        court,
       ],
       (err2) => {
         if (err2) return res.status(500).json({ error: err2.message });
 
-        res.status(201).json({
-          message: 'Estate and address config created',
-          estate_id: estateId
+      return res.status(201).json({
+          message: 'Estate config created',
+          estate_id: estate_id
         });
       }
     );
-  });
-
 };
+
 
 
 ///.......Update Estate......////
