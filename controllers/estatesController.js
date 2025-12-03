@@ -269,9 +269,6 @@ exports.createEstate = (req, res) => {
     latitude, longitude, estate_image, logo_url, created_at, updated_at
   ], (err, result) => {
 
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
 
     const estate_id = result.insertId;
 
