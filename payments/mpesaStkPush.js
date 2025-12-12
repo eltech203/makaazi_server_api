@@ -643,7 +643,8 @@ router.post("/stk_push_subscription", access,_urlencoded, async function(req, re
                 console.log(error);
                 res.status(404).json(error);
             } else {
-                res.status(200).json(response);
+                res.status(200).json(body);
+                console.log('STK Body',body);
                 console.log('plan id',plan_id);
                 console.log('estate id',estate_id);
             }
