@@ -126,7 +126,7 @@ router.post("/mpesa_stk_push", access, _urlencoded,  function(req, res) {
                 PartyA: _phoneNumber,
                 PartyB: _shortCode,
                 PhoneNumber: _phoneNumber,
-                CallBackURL:'https://web-production-27f796.up.railway.app/payment/stk_callback',
+                CallBackURL:'https://makaaziserverapi-production.up.railway.app/payment/stk_callback',
                 AccountReference: "INTEC Payment sandbox",
                 TransactionDesc: "Make payment to SCM router of INTEC",
             }, 
@@ -235,8 +235,8 @@ router.post('/trans_status', access ,(req,res,next) =>{
                 "TransactionID": _mpesaReceipt,
                 "PartyA":dev_shortCode,
                 "IdentifierType":"4",
-                "QueueTimeOutURL":"https://web-production-27f796.up.railway.app/payment/timeout_status",
-                "ResultURL":"https://web-production-27f796.up.railway.app/payment/result_status",
+                "QueueTimeOutURL":"https://makaaziserverapi-production.up.railway.app/payment/timeout_status",
+                "ResultURL":"https://makaaziserverapi-production.up.railway.app/payment/result_status",
                 "Remarks":"OK",
                 "Occasion":"OK",
              }
@@ -627,14 +627,13 @@ router.post("/stk_push_subscription", access,_urlencoded, async function(req, re
             json: {
                 BusinessShortCode: _shortCode,
                 Password: password,
-
                 Timestamp: timeStamp,
                 TransactionType: "CustomerPayBillOnline",
                 Amount: amount,
                 PartyA: phone_number,
                 PartyB: _shortCode,
                 PhoneNumber: phone_number,
-                CallBackURL:'https://web-production-27f796.up.railway.app/payment/subscription_callback',
+                CallBackURL:'https://makaaziserverapi-production.up.railway.app/payment/subscription_callback',
                 AccountReference: "INTEC Payment sandbox",
                 TransactionDesc: "Make payment to SCM router of INTEC",
             }, 
@@ -644,7 +643,7 @@ router.post("/stk_push_subscription", access,_urlencoded, async function(req, re
                 console.log(error);
                 res.status(404).json(error);
             } else {
-                res.status(200).json(body);
+                res.status(200).json(response);
                 console.log('plan id',plan_id);
                 console.log('estate id',estate_id);
             }
