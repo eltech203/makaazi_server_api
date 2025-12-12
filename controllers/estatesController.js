@@ -42,11 +42,11 @@ exports.getEstateByName = (req, res) => {
     db.query(sql, [estateId], (err, results) => {
         if (err) {
             console.error("Database Error:", err.message);
-            return res.status(500).send("Error retrieving estate");
+            return res.status(404).send("Error retrieving estate");
         }
 
         if (results.length === 0) {
-            return res.status(404).send("Estate not found");
+            return res.send("Estate not found");
         }
 
         res.status(200).json(results[0]);
@@ -66,7 +66,7 @@ exports.getEstateById = (req, res) => {
         }
 
         if (results.length === 0) {
-            return res.status(404).send("Estate not found");
+            return res.send("Estate not found");
         }
 
         res.status(200).json(results[0]);
@@ -158,7 +158,7 @@ exports.checkEstateDue = (req, res) => {
         }
 
         if (!results.length) {
-            return res.status(404).json({ message: "No subscription found for this estate" });
+            return res.json({ message: "No subscription found for this estate" });
         }
 
         res.json(results[0]);
@@ -195,7 +195,7 @@ exports.getBillingMessage = (req, res) => {
         }
 
         if (results.length === 0) {
-            return res.status(404).json({ message: "No active subscription found for this estate." });
+            return res.json({ message: "No active subscription found for this estate." });
         }
 
         const plan = results[0];
@@ -244,7 +244,7 @@ exports.getEstateSubById = (req, res) => {
         }
 
         if (results.length === 0) {
-            return res.status(404).send("Estate not found");
+            return res.send("Estate not found");
         }
 
         res.status(200).json(results[0]);
@@ -302,9 +302,9 @@ exports.createEstateConfig = (req, res) => {
       ],
       (err2) => {
        
-if (err2) {
-      return res.status(500).json({ error: err2.message });
-    }
+      if (err2) {
+       return res.status(500).json({ error: err2.message });
+      }
       return res.status(201).json({
           message: 'Estate config created',
           estate_id: estate_id
