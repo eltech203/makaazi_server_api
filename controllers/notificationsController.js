@@ -8,3 +8,24 @@ exports.sendNotification = (req, res) => {
         res.json({ message: 'Notification sent', reply });
     });
 };
+
+
+exports.getNotifications = async (req, res) => {
+  const { uid } = req.params;
+
+  db.query(
+    `
+    SELECT *
+    FROM notifications
+    WHERE user_uid = ?
+    ORDER BY created_at DESC
+    `,
+    [uid],
+    (err, rows) => {
+      if (err)
+        return res.status(500).json({ message: "DB error" });
+
+      res.json(rows);
+    }
+  );
+};

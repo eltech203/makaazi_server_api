@@ -5,6 +5,7 @@ const router = express.Router();
 const cors = require("cors");
 const db = require('../config/db');
 const moment = require('moment');
+const { sendNotification } = require("../utils/notify");
 
 // Utility function to get lowercase month name
 function getMonthColumn(date) {
@@ -119,7 +120,6 @@ router.post("/mpesa_stk_push", access, _urlencoded,  function(req, res) {
             json: {
                 BusinessShortCode: _shortCode,
                 Password: password,
-
                 Timestamp: timeStamp,
                 TransactionType: "CustomerPayBillOnline",
                 Amount: _Amount,
@@ -127,7 +127,7 @@ router.post("/mpesa_stk_push", access, _urlencoded,  function(req, res) {
                 PartyB: _shortCode,
                 PhoneNumber: _phoneNumber,
                 CallBackURL:'https://makaaziserverapi-production-252f.up.railway.app/payment/stk_callback',
-                AccountReference: "INTEC Payment sandbox",
+                AccountReference: "INTEC Makaazi Payment sandbox",
                 TransactionDesc: "Make payment to SCM router of INTEC",
             }, 
         },
@@ -197,13 +197,21 @@ router.post("/stk_callback", async function(req, res) {
         estate_id
     ];
 
-    db.query(sql, values, (err, result) => {
+    db.query(sql, values, async (err, result) => {
         if (err) {
             console.error("❌ Error saving payment:", err.message);
             return res.status(500).json({ error: "Database error" });
         }
 
         console.log("✅ Payment saved:", result);
+
+        await sendNotification({
+        user_uid: _UserID,
+        user_type: "ESTATE",
+        title: "Payment Received",
+        message: "Payment has been received successfully.",
+        type: "PAYMENT",
+        });
         delete paymentMetaStore[metaKey]; // Clean up temp metadata
         res.status(200).json({ message: "Payment saved successfully" });
     });
@@ -589,8 +597,6 @@ router.post("/stk_push_subscription", access,_urlencoded, async function(req, re
             [estate_id]
         );
 
-
-
          // 2️⃣ Find matching plan from subscription_plans table
         const [plans] = await db.promise().query(
             `SELECT plan_id, monthly_rate 
@@ -608,6 +614,7 @@ router.post("/stk_push_subscription", access,_urlencoded, async function(req, re
         monthly_rate  = plans[0];
 
         total_households = count;
+        console.log('Total Households:', total_households);
         const amount = getSubscriptionRate(count);
           let endpoint = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
     let auth = "Bearer " + req.access_token;
@@ -729,13 +736,19 @@ router.post("/subscription_callback", async function (req, res) {
             transID
         ];
 
-        db.query(sql2, values2, (err, result) => {
+        db.query(sql2, values2, async(err, result) => {
             if (err) {
                 console.error("❌ Subscription insert/update error:", err.message);
                 return res.status(500).json({ error: "Subscription update failed" });
             }
             console.log("✅ Subscription inserted or updated successfully");
-
+            await sendNotification({
+            user_uid: estate_id.toString(), // Assuming estate_id can be used as user_uid
+            user_type: "ESTATE",
+            title: "Subscription Payment Received",
+            message: "Your subscription payment has been received successfully.",
+            type: "PAYMENT",
+            });
             return res.status(200).json({ message: "Subscription recorded successfully" });
         });
     });
