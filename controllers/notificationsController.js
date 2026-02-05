@@ -1,11 +1,19 @@
 const redisClient = require('../config/redis');
+const { sendNotification } = require("../utils/notify");
 
 // Send Notification
-exports.sendNotification = (req, res) => {
+exports.sendNotification = async (req, res) => {
     const { message } = req.body;
     redisClient.publish('notifications', message, (err, reply) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Notification sent', reply });
+        sendNotification({
+                user_uid: req.body.uid,
+                user_type: "SYSTEM",
+                title: req.body.title,
+                message: req.body.message,
+                type:  "SYSTEM",
+                });
+       return res.json({ message: 'Notification sent', reply });
     });
 };
 
