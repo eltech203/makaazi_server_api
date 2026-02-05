@@ -8,7 +8,7 @@ exports.sendNotification = async (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         sendNotification({
                 user_uid: req.body.uid,
-                user_type: "SYSTEM",
+                user_type: "USER",
                 title: req.body.title,
                 message: req.body.message,
                 type:  "SYSTEM",
