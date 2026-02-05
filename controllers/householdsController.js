@@ -444,8 +444,7 @@ exports.createHousehold = async(req, res) => {
 
     // Validate required fields
     if (
-        !estate_id || !primary_owner ||!spouse_name || !residence_status || !contact_number || !house_number ||
-        !section || !court || !street || !is_official||! official_role || !active || !uid
+        !estate_id || !primary_owner ||!spouse_name || !residence_status || !contact_number || !house_number
     ) {
         return res.status(400).json({ error: "All required fields must be provided" });
     }
