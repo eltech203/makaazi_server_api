@@ -1,5 +1,6 @@
 const redisClient = require('../config/redis');
 const { sendNotification } = require("../utils/notify");
+const db = require('../config/db');
 
 // Send Notification
 exports.sendNotification =  (req, res) => {
