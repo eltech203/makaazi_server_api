@@ -55,6 +55,7 @@ let estate_id ;
 
 let _checkoutRequestId,
     _UserID,
+    UID,
     Username,
     Subscription,
     _Amount,
@@ -82,6 +83,7 @@ router.post("/mpesa_stk_push", access, _urlencoded,  function(req, res) {
     _phoneNumber = req.body.phone;
     _Amount = req.body.amount;
     _UserID = req.body.user_id;
+    UID = req.body.uid; 
     Username = req.body.user_name;
     Subscription = req.body.subscription;
 
@@ -138,7 +140,7 @@ router.post("/mpesa_stk_push", access, _urlencoded,  function(req, res) {
             } else {
                 res.status(200).json(body);
                 console.log(body);
-                console.log(Username);
+                console.log(Username ,"UID => "+UID);
             }
         }
     );
@@ -410,11 +412,18 @@ router.post("/callback", _urlencoded, (req, res) =>{
             overdue, months_equivalent, payment_date, transID, transdate, transNo
         ];
 
-        db.query(sql, values, (err, result) => {
+        db.query(sql, values, async (err, result) => {
             if (err) {
                 console.error("Error saving payment data:", err.message);
                 return res.status(500).json({ error: "Database error" });
             }
+             await sendNotification({
+            user_uid: _UserID, // Assuming estate_id can be used as user_uid
+            user_type: "USER",
+            title: "Payment Received",
+            message: "Your payment has been received successfully.",
+            type: "PAYMENT",
+            });
             console.log("Payment saved successfully:", result);
            return res.status(200).json({ message: "Payment saved successfully" });
         });

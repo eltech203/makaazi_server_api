@@ -1,5 +1,7 @@
 const db = require('../config/db');
 const redisClient = require('../config/redis');
+const { sendNotification } = require("../utils/notify");
+
 
 const DEFAULT_EXPIRATION = 60;
 
@@ -46,11 +48,18 @@ exports.addOfficial = (req, res) => {
     `;
     const data = [ estate_id,full_name,official_id, role, contact_number, estate_urn, uid];
 
-    db.query(sql, data, (err, result) => {
+    db.query(sql, data, async (err, result) => {
         if (err) {
             console.error("❌ Error adding official:", err.message);
             return res.status(500).json({ error: err.message });
         }
+        await sendNotification({
+                user_uid: official_id,
+                user_type: "USER",
+                title: "Official Added",
+                message: "You have been added as an official.",
+                type: "SYSTEM",
+                });
         res.json({ message: 'Official added successfully', officialId: result.insertId });
     });
 };
