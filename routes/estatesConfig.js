@@ -13,9 +13,9 @@ router.post("/config", saveEstateAddressConfig);
 // ======================
 // ADMIN – DROPDOWN SETUP
 // ======================
-router.post("/sections", addSection);
-router.post("/courts", addCourt);
-router.post("/streets", addStreet);
+router.post("/add-section", addSection);
+router.post("/add-court", addCourt);
+router.post("/add-street", addStreet);
 
 // ======================
 // REGISTRATION
