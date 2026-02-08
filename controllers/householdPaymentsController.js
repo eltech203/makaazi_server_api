@@ -523,3 +523,65 @@ exports.getPaymentsByEstateId = (req, res) => {
     res.json(results);
   });
 };
+
+
+
+
+
+exports.getHouseholdDashboard = async (req, res) => {
+    const { uid } = req.params;
+    const cacheKey = `dashboard:${uid}`;
+
+    try {
+        // 1️⃣ Check Redis cache
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+            return res.json(JSON.parse(cached));
+        }
+
+        // 2️⃣ Query DB
+        const [rows] = await db.promise().query(
+            `
+            SELECT
+                COALESCE(SUM(monthly_rate), 0) AS due_to_date,
+                COALESCE(SUM(monthly_rate - amount_paid), 0) AS overdue,
+                ROUND(
+                    COALESCE(SUM(monthly_rate - amount_paid), 0)
+                    / NULLIF(MAX(monthly_rate), 0),
+                    2
+                ) AS monthly_equivalent
+            FROM payments
+            WHERE uid = ?
+            AND year = YEAR(CURDATE())
+            AND month <= MONTH(CURDATE())
+            `,
+            [uid]
+        );
+
+        const data = rows[0];
+
+        // 3️⃣ Derive status
+        let status = "No Charges";
+        if (data.due_to_date > 0) {
+            if (data.overdue > 0) status = "Overdue";
+            else if (data.overdue < 0) status = "Prepaid";
+            else status = "Paid";
+        }
+
+        const response = {
+            due_to_date: Number(data.due_to_date),
+            overdue: Number(data.overdue),
+            monthly_equivalent: Number(data.monthly_equivalent),
+            status
+        };
+
+        // 4️⃣ Cache for 5 minutes
+        await redis.setex(cacheKey, 300, JSON.stringify(response));
+
+        return res.json(response);
+
+    } catch (err) {
+        console.error("Dashboard error:", err.message);
+        return res.status(500).json({ error: "Dashboard fetch failed" });
+    }
+};

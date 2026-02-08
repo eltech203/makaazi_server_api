@@ -17,6 +17,7 @@ router.get('/by-estate/:estate_id', controller.getHouseholdYearlySummary);
 router.get('/year-by-estate/:id', controller.getHouseholdYearlySummaryEstate);
 router.get('/summaryHousehold/:household_id', controller.getSummaryByHouseholdId);
 router.get('/summaryEstateSearch/:id', controller.getSummaryByEstateId);
+router.get('/dashboard/:uid', controller.getHouseholdDashboard); // Dashboard data for household
 
 
 
