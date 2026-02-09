@@ -576,17 +576,25 @@ exports.getHouseholdDashboard = async (req, res) => {
         }
 
         const row = rows[0];
-        const monthlyRate = row.due_year_to_date / 12;
+      
 
-        const overdue = Number(row.due_to_date) - Number(row.total_paid_to_date);
+          const monthlyRate = row.due_year_to_date / 12;
 
-        const monthlyEquivalent =
-            monthlyRate > 0 ? Number((row.total_paid_to_date / monthlyRate).toFixed(2)) : 0;
+          const dueToDate = Number(row.due_to_date);
+          const totalPaid = Number(row.total_paid_to_date);
 
-        // 3️⃣ Status logic
-        let status = "Paid";
-        if (overdue > 0) status = "Overdue";
-        else if (overdue < 0) status = "Prepaid";
+          const overdue = dueToDate - totalPaid;
+
+          // ✅ FIXED LOGIC
+          const monthlyEquivalent =
+              monthlyRate > 0
+                  ? Number((totalPaid / monthlyRate).toFixed(2))
+                  : 0;
+
+          // Status
+          let status = "Paid";
+          if (overdue > 0) status = "Overdue";
+          else if (overdue < 0) status = "Prepaid";
 
         const response = {
             due_to_date: Number(row.due_to_date),
