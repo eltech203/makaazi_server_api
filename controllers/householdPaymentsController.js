@@ -599,6 +599,7 @@ exports.getHouseholdDashboard = async (req, res) => {
         const response = {
             due_to_date: Number(row.due_to_date),
             overdue: Number(overdue),
+            total_paid:Number(totalPaid),
             monthly_equivalent: monthlyEquivalent,
             status
         };
