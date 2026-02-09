@@ -533,50 +533,70 @@ exports.getHouseholdDashboard = async (req, res) => {
     const cacheKey = `dashboard:${uid}`;
 
     try {
-        // 1️⃣ Check redisClient cache
+        // 1️⃣ Redis cache
         const cached = await redisClient.get(cacheKey);
         if (cached) {
             return res.json(JSON.parse(cached));
         }
 
-        // 2️⃣ Query DB
+        // 2️⃣ DB query
         const [rows] = await db.promise().query(
             `
             SELECT
-                COALESCE(SUM(monthly_rate), 0) AS due_to_date,
-                COALESCE(SUM(monthly_rate - amount_paid), 0) AS overdue,
-                ROUND(
-                    COALESCE(SUM(monthly_rate - amount_paid), 0)
-                    / NULLIF(MAX(monthly_rate), 0),
-                    2
-                ) AS monthly_equivalent
-            FROM payments
+                ROUND((due_year_to_date / 12) * MONTH(CURDATE()), 2) AS due_to_date,
+                (
+                    CASE WHEN MONTH(CURDATE()) >= 1  THEN january   ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 2  THEN february  ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 3  THEN march     ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 4  THEN april     ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 5  THEN may       ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 6  THEN june      ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 7  THEN july      ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 8  THEN august    ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 9  THEN september ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 10 THEN october   ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 11 THEN november  ELSE 0 END +
+                    CASE WHEN MONTH(CURDATE()) >= 12 THEN december  ELSE 0 END
+                ) AS total_paid_to_date,
+                due_year_to_date
+            FROM household_payments
             WHERE uid = ?
             AND year = YEAR(CURDATE())
-            AND month <= MONTH(CURDATE())
             `,
             [uid]
         );
 
-        const data = rows[0];
-
-        // 3️⃣ Derive status
-        let status = "No Charges";
-        if (data.due_to_date > 0) {
-            if (data.overdue > 0) status = "Overdue";
-            else if (data.overdue < 0) status = "Prepaid";
-            else status = "Paid";
+        if (!rows.length) {
+            return res.json({
+                due_to_date: 0,
+                overdue: 0,
+                monthly_equivalent: 0,
+                status: "No Charges"
+            });
         }
 
+        const row = rows[0];
+        const monthlyRate = row.due_year_to_date / 12;
+
+        const overdue = Number(row.due_to_date) - Number(row.total_paid_to_date);
+
+        const monthlyEquivalent =
+            monthlyRate > 0 ? Number((overdue / monthlyRate).toFixed(2)) : 0;
+
+        // 3️⃣ Status logic
+        let status = "Paid";
+        if (overdue > 0) status = "Overdue";
+        else if (overdue < 0) status = "Prepaid";
+
         const response = {
-            due_to_date: Number(data.due_to_date),
-            overdue: Number(data.overdue),
-            monthly_equivalent: Number(data.monthly_equivalent),
+            due_to_date: Number(row.due_to_date),
+            overdue,
+            monthly_equivalent: monthlyEquivalent,
             status
         };
 
-        // 4️⃣ Cache for 5 minutes
-        await redisClient.setex(cacheKey, 300, JSON.stringify(response));
+        // 4️⃣ Cache (5 minutes)
+        await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
 
         return res.json(response);
 
