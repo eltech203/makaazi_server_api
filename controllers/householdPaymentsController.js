@@ -598,13 +598,13 @@ exports.getHouseholdDashboard = async (req, res) => {
 
         const response = {
             due_to_date: Number(row.due_to_date),
-            overdue,
+            overdue: Number(overdue),
             monthly_equivalent: monthlyEquivalent,
             status
         };
 
         // 4️⃣ Cache (5 minutes)
-        await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+        await redisClient.setEx(cacheKey, 200, JSON.stringify(response));
 
         return res.json(response);
 
