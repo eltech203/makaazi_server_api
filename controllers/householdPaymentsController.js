@@ -581,7 +581,7 @@ exports.getHouseholdDashboard = async (req, res) => {
         const overdue = Number(row.due_to_date) - Number(row.total_paid_to_date);
 
         const monthlyEquivalent =
-            monthlyRate > 0 ? Number((overdue / monthlyRate).toFixed(2)) : 0;
+            monthlyRate > 0 ? Number((row.total_paid_to_date / monthlyRate).toFixed(2)) : 0;
 
         // 3️⃣ Status logic
         let status = "Paid";
