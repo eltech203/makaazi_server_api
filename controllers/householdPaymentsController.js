@@ -1,6 +1,6 @@
 // controllers/householdPaymentsController.js
 const db = require('../config/db');
-const redisClient = require('../config/redis');
+const redisClientClient = require('../config/redisClient');
 
 // Get all payments (optionally filter by estate_id or household_id)
 exports.getAllPayments = async (req, res) => {
@@ -23,16 +23,16 @@ exports.getAllPayments = async (req, res) => {
   }
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached = await redisClientClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     db.query(sql, params, async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results));
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results));
       res.json(results);
     });
   } catch (err) {
-    res.status(500).json({ error: 'Redis error' });
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -43,17 +43,17 @@ exports.getMonthlySummary = async (req, res) => {
   const sql = 'SELECT * FROM household_payments WHERE household_id = ?';
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached = await redisClientClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     db.query(sql, [household_id], async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0) return res.status(404).json({ message: 'Household not found' });
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
       res.json(results[0]);
     });
   } catch (err) {
-    res.status(500).json({ error: 'Redis error' });
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -63,16 +63,16 @@ exports.getOverdueHouseholds = async (req, res) => {
   const sql = 'SELECT * FROM household_payments WHERE due_year_to_date > total_paid';
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached = await redisClientClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     db.query(sql, async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results));
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results));
       res.json(results);
     });
   } catch (err) {
-    res.status(500).json({ error: 'Redis error' });
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -82,17 +82,17 @@ exports.getPaymentById = async (req, res) => {
   const cacheKey = `householdPayments:${id}`;
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached = await redisClientClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     db.query('SELECT * FROM household_payments WHERE id = ?', [id], async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0) return res.status(404).json({ message: 'Not found' });
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
       res.json(results[0]);
     });
   } catch (err) {
-    res.status(500).json({ error: 'Redis error' });
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -101,17 +101,17 @@ exports.getPaymentByUid = async (req, res) => {
   const cacheKey = `householdPaymentsUid:${id}`;
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached = await redisClientClient.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
     db.query('SELECT * FROM household_payments WHERE uid = ?', [id], async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
       if (results.length === 0) return res.status(404).json({ message: 'Not found' });
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results[0]));
       res.json(results[0]);
     });
   } catch (err) {
-    res.status(500).json({ error: 'Redis error' });
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -120,7 +120,7 @@ exports.createPayment = async (req, res) => {
   const data = req.body;
   db.query('INSERT INTO household_payments SET ?', data, async (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    await redisClient.del('householdPayments:all');
+    await redisClientClient.del('householdPayments:all');
     res.status(201).json({ message: 'Created', id: result.insertId });
   });
 };
@@ -147,8 +147,8 @@ exports.updatePayment = async (req, res) => {
   db.query(sql, values, async (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Not found' });
-    await redisClient.del('householdPayments:all');
-    await redisClient.del(`householdPayments:${id}`);
+    await redisClientClient.del('householdPayments:all');
+    await redisClientClient.del(`householdPayments:${id}`);
     res.json({ message: 'Updated successfully' });
   });
 };
@@ -159,8 +159,8 @@ exports.deletePayment = async (req, res) => {
   db.query('DELETE FROM household_payments WHERE id = ?', [id], async (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
     if (result.affectedRows === 0) return res.status(404).json({ message: 'Not found' });
-    await redisClient.del('householdPayments:all');
-    await redisClient.del(`householdPayments:${id}`);
+    await redisClientClient.del('householdPayments:all');
+    await redisClientClient.del(`householdPayments:${id}`);
     res.json({ message: 'Deleted' });
   });
 };
@@ -433,9 +433,9 @@ exports.getHouseholdYearlySummaryEstate = async (req, res) => {
   const cacheKey = `yearlySummary:${estateId}:${year}`;
 
   try {
-    const cachedData = await redisClient.get(cacheKey);
+    const cachedData = await redisClientClient.get(cacheKey);
     if (cachedData) {
-      console.log('🔁 Serving from Redis');
+      console.log('🔁 Serving from redisClient');
       return res.json(JSON.parse(cachedData));
     }
 
@@ -464,12 +464,12 @@ exports.getHouseholdYearlySummaryEstate = async (req, res) => {
       }
 
       // Cache for 5 minutes
-      await redisClient.setEx(cacheKey, 100, JSON.stringify(results));
+      await redisClientClient.setEx(cacheKey, 100, JSON.stringify(results));
 
       res.json(results);
     });
   } catch (error) {
-    console.error('❌ Redis error:', error.message);
+    console.error('❌ redisClient error:', error.message);
     res.status(500).json({ error: 'Server error' });
   }
 };
@@ -477,16 +477,16 @@ exports.getHouseholdYearlySummaryEstate = async (req, res) => {
 
 
 
- // Make sure redis is configured and connected
+ // Make sure redisClient is configured and connected
 
 exports.getAllHouseholdPayments = async (req, res) => {
   const cacheKey = 'householdPayments:all';
 
   try {
-    // 1. Try to fetch from Redis cache
-    const cachedData = await redisClient.get(cacheKey);
+    // 1. Try to fetch from redisClient cache
+    const cachedData = await redisClientClient.get(cacheKey);
     if (cachedData) {
-      console.log('✅ Data from Redis cache');
+      console.log('✅ Data from redisClient cache');
       return res.json(JSON.parse(cachedData));
     }
 
@@ -494,14 +494,14 @@ exports.getAllHouseholdPayments = async (req, res) => {
     db.query('SELECT * FROM household_payments', async (err, results) => {
       if (err) return res.status(500).json({ error: err.message });
 
-      // 3. Store in Redis (expires in 5 minutes)
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(results));
-      console.log('✅ Data from MySQL and cached in Redis');
+      // 3. Store in redisClient (expires in 5 minutes)
+      await redisClientClient.setEx(cacheKey, 300, JSON.stringify(results));
+      console.log('✅ Data from MySQL and cached in redisClient');
       res.json(results);
     });
   } catch (error) {
-    console.error('❌ Redis error:', error.message);
-    res.status(500).json({ error: 'Redis error' });
+    console.error('❌ redisClient error:', error.message);
+    res.status(500).json({ error: 'redisClient error' });
   }
 };
 
@@ -533,8 +533,8 @@ exports.getHouseholdDashboard = async (req, res) => {
     const cacheKey = `dashboard:${uid}`;
 
     try {
-        // 1️⃣ Check Redis cache
-        const cached = await redis.get(cacheKey);
+        // 1️⃣ Check redisClient cache
+        const cached = await redisClient.get(cacheKey);
         if (cached) {
             return res.json(JSON.parse(cached));
         }
@@ -576,7 +576,7 @@ exports.getHouseholdDashboard = async (req, res) => {
         };
 
         // 4️⃣ Cache for 5 minutes
-        await redis.setex(cacheKey, 300, JSON.stringify(response));
+        await redisClient.setex(cacheKey, 300, JSON.stringify(response));
 
         return res.json(response);
 
