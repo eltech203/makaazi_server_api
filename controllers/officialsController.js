@@ -5,6 +5,59 @@ const { sendNotification } = require("../utils/notify");
 
 const DEFAULT_EXPIRATION = 60;
 
+
+/**
+ * type = "section" | "street" | "court"
+ */
+exports.getAddressSummary = async (req, res) => {
+    const { estate_id, year, type } = req.query;
+
+    if (!estate_id) return res.status(400).json({ error: "estate_id is required" });
+    if (!type || !["section", "street", "court"].includes(type))
+        return res.status(400).json({ error: "type must be section, street, or court" });
+
+    const selectedYear = year || new Date().getFullYear();
+
+    const cacheKey = `summary:${estate_id}:${selectedYear}:${type}`;
+
+    try {
+        // 1️⃣ Try Redis first
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return res.json(JSON.parse(cached));
+        }
+
+        // 2️⃣ Query DB
+        const sql = `
+            SELECT
+                h.${type} AS name,
+                COUNT(DISTINCT h.household_id) AS households,
+                COALESCE(SUM(hp.total_paid), 0) AS total_paid,
+                COALESCE(SUM(hp.due_year_to_date - hp.total_paid), 0) AS arrears
+            FROM households h
+            LEFT JOIN household_payments hp
+                ON h.household_id = hp.household_id
+                AND hp.year = ?
+            WHERE h.estate_id = ?
+            GROUP BY h.${type}
+            ORDER BY h.${type}
+        `;
+
+        const [rows] = await db.promise().query(sql, [selectedYear, estate_id]);
+
+        // 3️⃣ Cache results in Redis (10 minutes)
+        await redisClient.setEx(cacheKey, 200, JSON.stringify(rows));
+
+        return res.json(rows);
+
+    } catch (err) {
+        console.error("Address summary error:", err.message);
+        return res.status(500).json({ error: "Failed to fetch address summary" });
+    }
+};
+
+
+
 // Get all officials with Redis caching
 exports.getAllOfficials = async (req, res) => {
     // Construct a unique cache key for all officials
