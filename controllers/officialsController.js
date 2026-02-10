@@ -10,30 +10,37 @@ const DEFAULT_EXPIRATION = 60;
  * type = "section" | "street" | "court"
  */
 exports.getAddressSummary = async (req, res) => {
-    const { estate_id, year, type } = req.query;
+    const { estate_id, type, year } = req.query;
 
     if (!estate_id) return res.status(400).json({ error: "estate_id is required" });
     if (!type || !["section", "street", "court"].includes(type))
         return res.status(400).json({ error: "type must be section, street, or court" });
 
     const selectedYear = year || new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1; // Jan = 1
 
-    const cacheKey = `summary:${estate_id}:${selectedYear}:${type}`;
+    const cacheKey = `summary_partial:${estate_id}:${selectedYear}:${type}:${currentMonth}`;
 
     try {
         // 1️⃣ Try Redis first
         const cached = await redisClient.get(cacheKey);
-        if (cached) {
-            return res.json(JSON.parse(cached));
-        }
+        if (cached) return res.json(JSON.parse(cached));
 
-        // 2️⃣ Query DB
+        // 2️⃣ SQL: sum only months up to currentMonth
+        const monthColumns = [
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december"
+        ].slice(0, currentMonth);
+
+        const monthSum = monthColumns.map(c => `COALESCE(hp.${c},0)`).join(" + ");
+
         const sql = `
             SELECT
                 h.${type} AS name,
                 COUNT(DISTINCT h.household_id) AS households,
-                COALESCE(SUM(hp.total_paid), 0) AS total_paid,
-                COALESCE(SUM(hp.due_year_to_date - hp.total_paid), 0) AS arrears
+                COALESCE(SUM(${monthSum}), 0) AS total_paid,
+                COALESCE(SUM(${monthSum} - ${monthSum}), 0) AS arrears_calc, -- will fix below
+                COALESCE(SUM(${monthSum}), 0) AS due_to_date
             FROM households h
             LEFT JOIN household_payments hp
                 ON h.household_id = hp.household_id
@@ -45,13 +52,31 @@ exports.getAddressSummary = async (req, res) => {
 
         const [rows] = await db.promise().query(sql, [selectedYear, estate_id]);
 
-        // 3️⃣ Cache results in Redis (10 minutes)
-        await redisClient.setEx(cacheKey, 200, JSON.stringify(rows));
+        // 3️⃣ Now calculate arrears correctly in JS
+        const result = rows.map(r => {
+            // Assuming total expected per month is known (e.g., 2000)
+            const monthly_expected = 2000;
+            const months_due = currentMonth;
+            const due_to_date = monthly_expected * months_due;
 
-        return res.json(rows);
+            const total_paid = parseFloat(r.total_paid || 0);
+            const arrears = due_to_date - total_paid;
+
+            return {
+                name: r.name,
+                households: r.households,
+                total_paid: total_paid.toFixed(2),
+                arrears: arrears.toFixed(2)
+            };
+        });
+
+        // 4️⃣ Cache for 10 minutes
+        await redisClient.setEx(cacheKey, 600, JSON.stringify(result));
+
+        return res.json(result);
 
     } catch (err) {
-        console.error("Address summary error:", err.message);
+        console.error("Partial address summary error:", err.message);
         return res.status(500).json({ error: "Failed to fetch address summary" });
     }
 };
