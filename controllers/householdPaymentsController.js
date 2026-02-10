@@ -1,10 +1,10 @@
 // controllers/householdPaymentsController.js
-const db = require('../config/db');
-const redisClient = require('../config/redis');
-
+const db = require("../config/db");
+const redisClient = require("../config/redis");
 
 const MONTHLY_RATE = 2000;
 const YEARLY_DUE = 24000;
+const CACHE_TTL = 60 * 2; // 5 minutes
 
 exports.getHouseholdPaymentsByAddress = async (req, res) => {
     const { estate_id, section, street, court, year } = req.query;
@@ -19,65 +19,78 @@ exports.getHouseholdPaymentsByAddress = async (req, res) => {
             ? new Date().getMonth() + 1
             : 12;
 
-    let conditions = ["h.estate_id = ?", "hp.year = ?"];
-    let values = [estate_id, selectedYear];
-
-    if (section) {
-        conditions.push("h.section = ?");
-        values.push(section);
-    }
-    if (street) {
-        conditions.push("h.street = ?");
-        values.push(street);
-    }
-    if (court) {
-        conditions.push("h.court = ?");
-        values.push(court);
-    }
-
-    const sql = `
-        SELECT
-            hp.id,
-            hp.household_id,
-            hp.full_name,
-            h.house_number,
-            h.section,
-            h.street,
-            h.court,
-
-            hp.year,
-            hp.january,
-            hp.february,
-            hp.march,
-            hp.april,
-            hp.may,
-            hp.june,
-            hp.july,
-            hp.august,
-            hp.september,
-            hp.october,
-            hp.november,
-            hp.december,
-
-            hp.total_paid
-        FROM household_payments hp
-        INNER JOIN households h
-            ON hp.household_id = h.household_id
-        WHERE ${conditions.join(" AND ")}
-        ORDER BY h.section, h.street, h.court, h.house_number
-    `;
+    const cacheKey = `payments:${estate_id}:${selectedYear}:${section || "all"}:${street || "all"}:${court || "all"}`;
 
     try {
+        // 🔹 1. CHECK CACHE
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+            return res.json(JSON.parse(cachedData));
+        }
+
+        // 🔹 2. BUILD QUERY
+        let conditions = ["h.estate_id = ?", "hp.year = ?"];
+        let values = [estate_id, selectedYear];
+
+        if (section) {
+            conditions.push("h.section = ?");
+            values.push(section);
+        }
+        if (street) {
+            conditions.push("h.street = ?");
+            values.push(street);
+        }
+        if (court) {
+            conditions.push("h.court = ?");
+            values.push(court);
+        }
+
+        const sql = `
+            SELECT
+                hp.id,
+                hp.household_id,
+                hp.full_name,
+
+                h.house_number,
+                h.section,
+                h.street,
+                h.court,
+
+                hp.year,
+                hp.january,
+                hp.february,
+                hp.march,
+                hp.april,
+                hp.may,
+                hp.june,
+                hp.july,
+                hp.august,
+                hp.september,
+                hp.october,
+                hp.november,
+                hp.december,
+
+                hp.total_paid,
+                hp.balance_brought_forward AS balance_bf
+            FROM household_payments hp
+            INNER JOIN households h
+                ON hp.household_id = h.household_id
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY h.section, h.street, h.court, h.house_number
+        `;
+
         const [rows] = await db.promise().query(sql, values);
 
+        // 🔹 3. PROCESS DATA
         const results = rows.map(row => {
             const expectedToDate = currentMonth * MONTHLY_RATE;
-            const overdue = Math.max(expectedToDate - row.total_paid, 0);
+            const totalDueToDate = expectedToDate + row.balance_bf;
+            const overdue = Math.max(totalDueToDate - row.total_paid, 0);
             const monthsEquivalent = row.total_paid / MONTHLY_RATE;
 
             let status = "Paid";
-            if (row.total_paid < expectedToDate) status = "Overdue";
-            if (row.total_paid > expectedToDate) status = "Prepaid";
+            if (row.total_paid < totalDueToDate) status = "Overdue";
+            if (row.total_paid > totalDueToDate) status = "Prepaid";
 
             return {
                 ...row,
@@ -89,6 +102,13 @@ exports.getHouseholdPaymentsByAddress = async (req, res) => {
             };
         });
 
+        // 🔹 4. STORE IN CACHE
+        await redisClient.setEx(
+            cacheKey,
+            CACHE_TTL,
+            JSON.stringify(results)
+        );
+
         return res.json(results);
 
     } catch (err) {
@@ -96,6 +116,7 @@ exports.getHouseholdPaymentsByAddress = async (req, res) => {
         return res.status(500).json({ error: "Failed to fetch payments" });
     }
 };
+
 
 // Get all payments (optionally filter by estate_id or household_id)
 exports.getAllPayments = async (req, res) => {
