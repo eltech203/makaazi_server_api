@@ -3,6 +3,67 @@ const redisClient = require('../config/redis');
 
 const DEFAULT_EXPIRATION = 60;
 
+xports.getHouseholdsByAddress = async (req, res) => {
+    const { estate_id, section, street, court } = req.query;
+
+    if (!estate_id) {
+        return res.status(400).json({ error: "estate_id is required" });
+    }
+
+    // Redis cache key
+    const cacheKey = `households:${estate_id}:${section || "all"}:${street || "all"}:${court || "all"}`;
+
+    try {
+        // 1️⃣ Check Redis first
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return res.json(JSON.parse(cached));
+        }
+
+        // 2️⃣ Build query
+        let conditions = ["estate_id = ?"];
+        let values = [estate_id];
+
+        if (section) {
+            conditions.push("section = ?");
+            values.push(section);
+        }
+        if (street) {
+            conditions.push("street = ?");
+            values.push(street);
+        }
+        if (court) {
+            conditions.push("court = ?");
+            values.push(court);
+        }
+
+        const sql = `
+            SELECT
+                household_id,
+                uid,
+                primary_owner,
+                contact_number,
+                house_number,
+                section,
+                street,
+                court,
+                active
+            FROM households
+            WHERE ${conditions.join(" AND ")}
+            ORDER BY section, street, court, house_number
+        `;
+
+        const [rows] = await db.promise().query(sql, values);
+
+        // 3️⃣ Save to Redis for 10 minutes
+        await redisClient.setEx(cacheKey, 200, JSON.stringify(rows));
+
+        return res.json(rows);
+    } catch (err) {
+        console.error("Households by address error:", err.message);
+        return res.status(500).json({ error: "Failed to fetch households" });
+    }
+};
 
 // ✅ Get All Households
 exports.getAllHouseholds = async(req, res) => {

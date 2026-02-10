@@ -15,7 +15,8 @@ const {
     getOfficials,
     existingHousehold,
     getHouseholdByPhone,
-    getHouseholdId
+    getHouseholdId,
+    getHouseholdsByAddress
 } = require('../controllers/householdsController');
 
 router.get('/getAll', getAllHouseholds);           // Get all households
@@ -33,7 +34,8 @@ router.get('/searchExisting/:phone', existingHousehold);        // Delete a hous
 router.get('/searchEstate/:id', searchHouseholdsId);        // Delete a household
 router.get('/getOfficials/:is_official', getOfficials);   
 router.get('/getOfficialsEstate/:estateId/:is_official', getOfficials); 
-router.get('/getHouseHoldByPhone/:contact_number', getHouseholdByPhone);   
+router.get('/getHouseHoldByPhone/:contact_number', getHouseholdByPhone);  
+router.get("/households/by-address", getHouseholdsByAddress); 
 
      // Delete a household
 

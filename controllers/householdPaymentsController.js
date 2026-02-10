@@ -2,6 +2,101 @@
 const db = require('../config/db');
 const redisClient = require('../config/redis');
 
+
+const MONTHLY_RATE = 2000;
+const YEARLY_DUE = 24000;
+
+exports.getHouseholdPaymentsByAddress = async (req, res) => {
+    const { estate_id, section, street, court, year } = req.query;
+
+    if (!estate_id) {
+        return res.status(400).json({ error: "estate_id is required" });
+    }
+
+    const selectedYear = parseInt(year) || new Date().getFullYear();
+    const currentMonth =
+        selectedYear === new Date().getFullYear()
+            ? new Date().getMonth() + 1
+            : 12;
+
+    let conditions = ["h.estate_id = ?", "hp.year = ?"];
+    let values = [estate_id, selectedYear];
+
+    if (section) {
+        conditions.push("h.section = ?");
+        values.push(section);
+    }
+    if (street) {
+        conditions.push("h.street = ?");
+        values.push(street);
+    }
+    if (court) {
+        conditions.push("h.court = ?");
+        values.push(court);
+    }
+
+    const sql = `
+        SELECT
+            hp.id,
+            hp.household_id,
+            hp.full_name,
+            h.house_number,
+            h.section,
+            h.street,
+            h.court,
+
+            hp.year,
+            hp.january,
+            hp.february,
+            hp.march,
+            hp.april,
+            hp.may,
+            hp.june,
+            hp.july,
+            hp.august,
+            hp.september,
+            hp.october,
+            hp.november,
+            hp.december,
+
+            hp.total_paid
+        FROM household_payments hp
+        INNER JOIN households h
+            ON hp.household_id = h.household_id
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY h.section, h.street, h.court, h.house_number
+    `;
+
+    try {
+        const [rows] = await db.promise().query(sql, values);
+
+        const results = rows.map(row => {
+            const expectedToDate = currentMonth * MONTHLY_RATE;
+            const overdue = Math.max(expectedToDate - row.total_paid, 0);
+            const monthsEquivalent = row.total_paid / MONTHLY_RATE;
+
+            let status = "Paid";
+            if (row.total_paid < expectedToDate) status = "Overdue";
+            if (row.total_paid > expectedToDate) status = "Prepaid";
+
+            return {
+                ...row,
+                due_year_to_date: YEARLY_DUE,
+                expected_to_date: expectedToDate,
+                overdue,
+                months_equivalent: Number(monthsEquivalent.toFixed(2)),
+                status
+            };
+        });
+
+        return res.json(results);
+
+    } catch (err) {
+        console.error("Payments by address error:", err.message);
+        return res.status(500).json({ error: "Failed to fetch payments" });
+    }
+};
+
 // Get all payments (optionally filter by estate_id or household_id)
 exports.getAllPayments = async (req, res) => {
   const { estate_id, household_id } = req.query;
