@@ -3,7 +3,7 @@ const redisClient = require('../config/redis');
 
 const DEFAULT_EXPIRATION = 60;
 
-xports.getHouseholdsByAddress = async (req, res) => {
+exports.getHouseholdsByAddress = async (req, res) => {
     const { estate_id, section, street, court } = req.query;
 
     if (!estate_id) {

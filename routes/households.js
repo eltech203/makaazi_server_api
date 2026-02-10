@@ -35,7 +35,7 @@ router.get('/searchEstate/:id', searchHouseholdsId);        // Delete a househol
 router.get('/getOfficials/:is_official', getOfficials);   
 router.get('/getOfficialsEstate/:estateId/:is_official', getOfficials); 
 router.get('/getHouseHoldByPhone/:contact_number', getHouseholdByPhone);  
-router.get("/households/by-address", getHouseholdsByAddress); 
+router.get("/by-address", getHouseholdsByAddress); 
 
      // Delete a household
 
