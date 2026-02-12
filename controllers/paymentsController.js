@@ -66,6 +66,8 @@ exports.getEstateQueryPayments= async (req, res) => {
         sql += ' AND WEEK(payment_date) = WEEK(CURDATE())';
     } else if (query === 'month') {
         sql += ' AND MONTH(payment_date) = MONTH(CURDATE())';
+    }else if (query === 'year') {
+        sql += ' AND YEAR(payment_date) = YEAR(CURDATE())';
     }
     db.query(sql, [estate_id], (err, results) => {
         if (err) {
