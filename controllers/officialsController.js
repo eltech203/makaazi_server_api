@@ -12,35 +12,48 @@ const DEFAULT_EXPIRATION = 60;
 exports.getAddressSummary = async (req, res) => {
     const { estate_id, type, year } = req.query;
 
-    if (!estate_id) return res.status(400).json({ error: "estate_id is required" });
+    if (!estate_id)
+        return res.status(400).json({ error: "estate_id is required" });
+
     if (!type || !["section", "street", "court"].includes(type))
         return res.status(400).json({ error: "type must be section, street, or court" });
 
     const selectedYear = year || new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1; // Jan = 1
+    const currentMonth = new Date().getMonth() + 1;
 
-    const cacheKey = `summary_partial:${estate_id}:${selectedYear}:${type}:${currentMonth}`;
+    const cacheKey = `summary:${estate_id}:${selectedYear}:${type}:${currentMonth}`;
 
     try {
-        // 1️⃣ Try Redis first
+        // 1️⃣ Redis cache
         const cached = await redisClient.get(cacheKey);
         if (cached) return res.json(JSON.parse(cached));
 
-        // 2️⃣ SQL: sum only months up to currentMonth
+        // 2️⃣ Get estate monthly rate
+        const [estateRow] = await db.promise().query(
+            "SELECT monthly_rate FROM estates WHERE estate_id = ?",
+            [estate_id]
+        );
+
+        if (!estateRow.length)
+            return res.status(404).json({ error: "Estate not found" });
+
+        const monthlyRate = parseFloat(estateRow[0].monthly_rate);
+
+        // 3️⃣ Build dynamic month sum
         const monthColumns = [
-            "january", "february", "march", "april", "may", "june",
+            "january", "february", "march", "apil", "may", "june",
             "july", "august", "september", "october", "november", "december"
         ].slice(0, currentMonth);
 
-        const monthSum = monthColumns.map(c => `COALESCE(hp.${c},0)`).join(" + ");
+        const monthSum = monthColumns
+            .map(c => `COALESCE(hp.${c},0)`)
+            .join(" + ");
 
         const sql = `
             SELECT
                 h.${type} AS name,
                 COUNT(DISTINCT h.household_id) AS households,
-                COALESCE(SUM(${monthSum}), 0) AS total_paid,
-                COALESCE(SUM(${monthSum} - ${monthSum}), 0) AS arrears_calc, -- will fix below
-                COALESCE(SUM(${monthSum}), 0) AS due_to_date
+                COALESCE(SUM(${monthSum}), 0) AS total_paid
             FROM households h
             LEFT JOIN household_payments hp
                 ON h.household_id = hp.household_id
@@ -52,31 +65,35 @@ exports.getAddressSummary = async (req, res) => {
 
         const [rows] = await db.promise().query(sql, [selectedYear, estate_id]);
 
-        // 3️⃣ Now calculate arrears correctly in JS
+        // 4️⃣ Correct arrears calculation
         const result = rows.map(r => {
-            // Assuming total expected per month is known (e.g., 2000)
-            const monthly_expected = 2000;
-            const months_due = currentMonth;
-            const due_to_date = monthly_expected * months_due;
 
-            const total_paid = parseFloat(r.total_paid || 0);
-            const arrears = due_to_date - total_paid;
+            const households = parseInt(r.households);
+            const totalPaid = parseFloat(r.total_paid || 0);
+
+            // expected per household up to this month
+            const expectedPerHousehold = monthlyRate * currentMonth;
+
+            // expected for ALL households in this group
+            const totalExpected = expectedPerHousehold * households;
+
+            const arrears = totalExpected - totalPaid;
 
             return {
                 name: r.name,
-                households: r.households,
-                total_paid: total_paid.toFixed(2),
+                households,
+                total_paid: totalPaid.toFixed(2),
                 arrears: arrears.toFixed(2)
             };
         });
 
-        // 4️⃣ Cache for 10 minutes
-        await redisClient.setEx(cacheKey, 600, JSON.stringify(result));
+        // 5️⃣ Cache 10 minutes
+        await redisClient.setEx(cacheKey, 200, JSON.stringify(result));
 
         return res.json(result);
 
     } catch (err) {
-        console.error("Partial address summary error:", err.message);
+        console.error("Address summary error:", err.message);
         return res.status(500).json({ error: "Failed to fetch address summary" });
     }
 };
