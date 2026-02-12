@@ -28,20 +28,12 @@ exports.getAddressSummary = async (req, res) => {
         const cached = await redisClient.get(cacheKey);
         if (cached) return res.json(JSON.parse(cached));
 
-        // 2️⃣ Get estate monthly rate
-        const [estateRow] = await db.promise().query(
-            "SELECT monthly_rate FROM estates WHERE estate_id = ?",
-            [estate_id]
-        );
+        // 🔥 HARDCODED MONTHLY RATE
+        const monthlyRate = 2000;
 
-        if (!estateRow.length)
-            return res.status(404).json({ error: "Estate not found" });
-
-        const monthlyRate = parseFloat(estateRow[0].monthly_rate);
-
-        // 3️⃣ Build dynamic month sum
+        // 2️⃣ Build dynamic month sum
         const monthColumns = [
-            "january", "february", "march", "apil", "may", "june",
+            "january", "february", "march", "april", "may", "june",
             "july", "august", "september", "october", "november", "december"
         ].slice(0, currentMonth);
 
@@ -65,16 +57,15 @@ exports.getAddressSummary = async (req, res) => {
 
         const [rows] = await db.promise().query(sql, [selectedYear, estate_id]);
 
-        // 4️⃣ Correct arrears calculation
         const result = rows.map(r => {
 
             const households = parseInt(r.households);
             const totalPaid = parseFloat(r.total_paid || 0);
 
-            // expected per household up to this month
+            // Expected per household up to this month
             const expectedPerHousehold = monthlyRate * currentMonth;
 
-            // expected for ALL households in this group
+            // Expected for ALL households
             const totalExpected = expectedPerHousehold * households;
 
             const arrears = totalExpected - totalPaid;
@@ -87,7 +78,7 @@ exports.getAddressSummary = async (req, res) => {
             };
         });
 
-        // 5️⃣ Cache 10 minutes
+        // 3️⃣ Cache for 10 minutes
         await redisClient.setEx(cacheKey, 200, JSON.stringify(result));
 
         return res.json(result);
