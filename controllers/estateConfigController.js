@@ -20,25 +20,6 @@ exports.getAddressConfig = (req,res) =>{
 };
 
 
-
-
-
-
-// Create Estate
-exports.createEstateAddress = (req, res) => {
-    const  { estate_id,show_street, show_section,show_court } = req.body;
-      
-    const sql = 'INSERT INTO estate_address_config (estate_id,show_street, show_section,show_court) VALUES (?,?,?,?)';
-
-    db.query(sql, [
-        estate_id,show_street, show_section,show_court
-    ], (err, result) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: 'Estate Config created successfully', estateId: result.insertId });
-    });
-};
-
-
 // Get address config for an estate (used by UI)
 exports.getEstateAddressConfig = (req, res) => {
     const { estate_id } = req.params;
@@ -67,6 +48,27 @@ exports.getEstateAddressConfig = (req, res) => {
         res.json(results[0]);
     });
 };
+
+
+
+
+
+
+// Create Estate
+exports.createEstateAddress = (req, res) => {
+    const  { estate_id,show_street, show_section,show_court } = req.body;
+      
+    const sql = 'INSERT INTO estate_address_config (estate_id,show_street, show_section,show_court) VALUES (?,?,?,?)';
+
+    db.query(sql, [
+        estate_id,show_street, show_section,show_court
+    ], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'Estate Config created successfully', estateId: result.insertId });
+    });
+};
+
+
 
 
 // Create or update estate config (ADMIN)

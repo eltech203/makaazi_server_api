@@ -100,7 +100,7 @@ exports.checkAndDisableEstateSubscription = (req, res) => {
         }
 
         if (!results.length) {
-            return res.status(404).json({ message: "No subscription found" });
+            return res.status(201).json({ message: "No subscription found" });
         }
 
         const subscription = results[0];
